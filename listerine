@@ -3,7 +3,12 @@
 #relies on googlegrape, aria2c, curl, and youtube-dl
 
 # Change the username below to something unique to you. ALPHANUMERIC ONLY!
-USERNAME=change-me-or-die
+if [ -f _username ]
+then
+	read USERNAME < _username
+else
+	USERNAME=change-me-or-die
+fi
 EXTERN_IP=`curl icanhazip.com` #Do not change without good reason, or underscor will eat your brains
 SERVER=199.48.254.90:8081
 
