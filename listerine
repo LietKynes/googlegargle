@@ -1,26 +1,67 @@
 #!/bin/bash
 #./listerine - a companion to the google gargle project
-#relies on googlegrape, aria2c, curl, and youtube-dl
+#relies on /proc/, googlegrape, aria2c, curl, and youtube-dl
 
 # Change the username below to something unique to you. ALPHANUMERIC ONLY!
 if [ -f _username ]
 then
 	read USERNAME < _username
 else
-	USERNAME=change-me-or-die
+	echo "Write your username in the file _username, for example:"
+	echo "echo PrinceAlbert > _username"
+	exit;
 fi
 EXTERN_IP=`curl icanhazip.com` #Do not change without good reason, or underscor will eat your brains
 SERVER=199.48.254.90:8081
+RAN=0 #how many processes ran so far
 
+mkdir -p _logs
 curl -s http://$SERVER/introduce/$USERNAME/$EXTERN_IP
 echo ""
 while true
 do
+	
+	RUNNING=10
+	MAX=1
+	while [ $RUNNING -ge $MAX ]
+	do
+		if [ -f ./_max_concurrent ]
+		then
+			read MAX < ./_max_concurrent
+		else
+			MAX=3
+		fi;
+		echo "Max downloads in parallel: $MAX"
+		RUNNING=0
+		for PID in $(jobs -p)
+		do
+			if [ -d /proc/$PID ] #TODO: (someone else) modify this for cross-platform
+			then
+				let "RUNNING = $RUNNING + 1"
+			fi
+		done ; echo "There are now $RUNNING jobs in the background:" ; jobs
+		if [ -f _stop ]
+		then
+			break
+		fi
+		sleep 10;
+	done
+	
+	if [ -f _stop ]
+	then
+		echo "_stop file found, waiting for child processes to end:"
+		jobs
+		wait
+		break
+	fi
+
 	echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
 	id=`curl http://$SERVER/getID/$USERNAME | sed "s/[^0-9\\-]//g"`
 
 	echo ID is $id
-	./googlegargle -- "$id"
+	./googlegargle -- "$id" 1>>_logs/"$id".log 2>&1 &
+	echo "Started googlegargle - $! - in background"
+	let "RAN = $RAN + 1"
 
 	SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
 	SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
@@ -35,8 +76,4 @@ do
 	piece2="/$hash"
 	echo $piece1$piece2
 	curl "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash"
-        if [ -f STOP ]; then 
-		echo "I see a file called STOP. Stopping."
-		exit 0
-	fi
 done
