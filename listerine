@@ -52,7 +52,7 @@ while [ $MAX -gt 0 ]; do
     echo "Max downloads in parallel: $MAX"
     RUNNING=0
     for PID in $(jobs -p); do
-        if [ -d /proc/$PID ]; then #TODO: (someone else) modify this for cross-platform
+        if kill -0 "$PID" 2>/dev/null; then
             let "RUNNING = $RUNNING + 1"
         fi
     done
