@@ -34,9 +34,11 @@ SERVER=199.48.254.90:8081
 RAN=0 #how many processes ran so far
 
 mkdir -p _logs
-mkdir -p _queue
-for PID in $(ls _queue); do
-    echo "Please clean up _queue/"
+QUEUE_DIR=_queue-$$
+trap "rm -rf $QUEUE_DIR" 0
+mkdir -p $QUEUE_DIR
+for PID in $(ls $QUEUE_DIR); do
+    echo "Please clean up $QUEUE_DIR/"
     exit 1
 done
 curl -s http://$SERVER/introduce/$USERNAME/$EXTERN_IP
@@ -64,7 +66,7 @@ while [ $MAX -gt 0 ]; do
     echo "PIDs:  "
     echo $(jobs -p)
     echo "Queue: "
-    ls _queue
+    ls $QUEUE_DIR
     sleep 5
     if [ $MAX -eq 0 ]; then
         echo "MAX set to 0, waiting for child processes to end:"
@@ -72,8 +74,8 @@ while [ $MAX -gt 0 ]; do
         wait
     fi
     
-    for PID in $(ls _queue/); do
-        read id < _queue/"$PID"
+    for PID in $(ls $QUEUE_DIR/); do
+        read id < $QUEUE_DIR/"$PID"
         count=$(ps auxww | grep -- $id | grep -v grep | wc -l)
         if [ $count -gt 0 ]; then
             continue
@@ -85,7 +87,7 @@ while [ $MAX -gt 0 ]; do
             hash=`sha1sum "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
             size=`du -b "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
             echo "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash"
-            curl "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash" && rm -f _queue/"$PID"
+            curl "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash" && rm -f $QUEUE_DIR/"$PID"
         else                    
             #echo "Something is wrong with id $id, PID $PID" | tee -a _ERRROS
             #$MAX=0
@@ -99,7 +101,7 @@ while [ $MAX -gt 0 ]; do
         
         echo ID is $id
         $GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
-        echo $id > _queue/$!
+        echo $id > $QUEUE_DIR/$!
         
         echo "Started googlegargle for $id - $! - in background"
         let "RAN = $RAN + 1"
