@@ -2,6 +2,16 @@
 #./listerine - a companion to the google gargle project
 #relies on /proc/, googlegrape, aria2c, curl, and youtube-dl
 
+# LietKynes fork
+# This version runs googlegargle in parallel for situations like mine where I'm throttled at 80k per download, but I can have several in parallel. I don't know if google or my ISP does the throttling.
+# By default this script runs 3 processes in parallel, but you can adjust the number in real-time like this:
+# echo 30 > _max_concurrent
+# To stop the script safely you should do this:
+# echo 0 > _max_concurrent
+# touch _stop
+#
+
+
 # Change the username below to something unique to you. ALPHANUMERIC ONLY!
 if [ -f _username ]
 then
