@@ -87,8 +87,8 @@ do
 		fi
 	done
 	
-	if [ $RUNNING -lt $MAX ]
-	then
+	while [ $RUNNING -lt $MAX ]
+	do
 		echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
 		id=`curl http://$SERVER/getID/$USERNAME | sed "s/[^0-9\\-]//g"`
 
@@ -98,6 +98,7 @@ do
 
 		echo "Started googlegargle for $id - $! - in background"
 		let "RAN = $RAN + 1"
-	fi
+		let "RUNNING = $RUNNING + 1"
+	done
 done
 echo "Ran a total of $RAN downloads"
