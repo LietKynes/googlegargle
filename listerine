@@ -35,79 +35,71 @@ RAN=0 #how many processes ran so far
 
 mkdir -p _logs
 mkdir -p _queue
-for PID in $(ls _queue)
-do
-	echo "Please clean up _queue/";
-	exit 1
+for PID in $(ls _queue); do
+    echo "Please clean up _queue/"
+    exit 1
 done
 curl -s http://$SERVER/introduce/$USERNAME/$EXTERN_IP
 echo ""
 RUNNING=0
 MAX=1
-while [ $MAX -gt 0 ]
-do
-	if [ -f ./_max_concurrent ]
-	then
-		read MAX < ./_max_concurrent
-	else
-		MAX=1
-	fi;
-	echo "Max downloads in parallel: $MAX"
-	RUNNING=0
-	for PID in $(jobs -p)
-	do
-		if [ -d /proc/$PID ] #TODO: (someone else) modify this for cross-platform
-		then
-			let "RUNNING = $RUNNING + 1"
-		fi
-	done
-		echo "There are now $RUNNING jobs in the background."
-		echo "PIDs:  "; echo $(jobs -p)
-		echo "Queue: "; ls _queue
-		sleep 5;
-	if [ $MAX -eq 0 ]
-	then
-		echo "MAX set to 0, waiting for child processes to end:"
-		jobs
-		wait
+while [ $MAX -gt 0 ]; do
+    if [ -f ./_max_concurrent ]; then
+	read MAX < ./_max_concurrent
+    else
+	MAX=1
+    fi
+    echo "Max downloads in parallel: $MAX"
+    RUNNING=0
+    for PID in $(jobs -p); do
+	if [ -d /proc/$PID ]; then #TODO: (someone else) modify this for cross-platform
+	    let "RUNNING = $RUNNING + 1"
 	fi
-
-	for PID in $(ls _queue/)
-	do
-		read id < _queue/"$PID"
-		count=$(ps auxww | grep -- $id | grep -v grep | wc -l)
-		if [ $count -gt 0 ]
-		then
-			continue
-		fi
-		SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
-		SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
-		THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
-		if [ -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv" -a ! -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]
-		then
-			hash=`sha1sum "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
-			size=`du -b "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
-			echo "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash"
-			curl "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash" && rm -f _queue/"$PID"
-		else			
-			#echo "Something is wrong with id $id, PID $PID" | tee -a _ERRROS
-			#$MAX=0;
-			echo -n ""
-		fi
-	done
-	
-	while [ $RUNNING -lt $MAX ]
-	do
-		echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
-		id=`curl --silent http://$SERVER/getID/$USERNAME | sed "s/[^0-9\\-]//g"`
-
-		echo ID is $id
-		$GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
-		echo $id > _queue/$!
-
-		echo "Started googlegargle for $id - $! - in background"
-		let "RAN = $RAN + 1"
-		let "RUNNING = $RUNNING + 1"
-	done
+    done
+    echo "There are now $RUNNING jobs in the background."
+    echo "PIDs:  "
+    echo $(jobs -p)
+    echo "Queue: "
+    ls _queue
+    sleep 5
+    if [ $MAX -eq 0 ]; then
+	echo "MAX set to 0, waiting for child processes to end:"
+	jobs
+	wait
+    fi
+    
+    for PID in $(ls _queue/); do
+	read id < _queue/"$PID"
+	count=$(ps auxww | grep -- $id | grep -v grep | wc -l)
+	if [ $count -gt 0 ]; then
+	    continue
+	fi
+	SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
+	SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
+	THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
+	if [ -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv" -a ! -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]; then
+	    hash=`sha1sum "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
+	    size=`du -b "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
+	    echo "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash"
+	    curl "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash" && rm -f _queue/"$PID"
+	else			
+            #echo "Something is wrong with id $id, PID $PID" | tee -a _ERRROS
+            #$MAX=0
+	    echo -n ""
+	fi
+    done
+    
+    while [ $RUNNING -lt $MAX ]; do
+	echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
+	id=`curl --silent http://$SERVER/getID/$USERNAME | sed "s/[^0-9\\-]//g"`
+        
+	echo ID is $id
+	$GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
+	echo $id > _queue/$!
+        
+	echo "Started googlegargle for $id - $! - in background"
+	let "RAN = $RAN + 1"
+	let "RUNNING = $RUNNING + 1"
+    done
 done
 echo "Ran a total of $RAN downloads"
