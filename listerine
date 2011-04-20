@@ -16,6 +16,7 @@ SERVER=199.48.254.90:8081
 RAN=0 #how many processes ran so far
 
 mkdir -p _logs
+mkdir -p _queue
 curl -s http://$SERVER/introduce/$USERNAME/$EXTERN_IP
 echo ""
 while true
@@ -39,12 +40,15 @@ do
 			then
 				let "RUNNING = $RUNNING + 1"
 			fi
-		done ; echo "There are now $RUNNING jobs in the background:" ; jobs
+		done
+		echo "There are now $RUNNING jobs in the background."
+		echo "PIDs:"; echo $(jobs -p)
+		echo "IDs:"; ls _queue
 		if [ -f _stop ]
 		then
 			break
 		fi
-		sleep 10;
+		sleep 5;
 	done
 	
 	if [ -f _stop ]
@@ -52,28 +56,43 @@ do
 		echo "_stop file found, waiting for child processes to end:"
 		jobs
 		wait
-		break
+	else
+		echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
+		id=`curl http://$SERVER/getID/$USERNAME | sed "s/[^0-9\\-]//g"`
+
+		echo ID is $id
+		./googlegargle -- "$id" 1>>_logs/"$id".log 2>&1 &
+		touch _queue/"$id"
+
+		echo "Started googlegargle for $id - $! - in background"
+		let "RAN = $RAN + 1"
 	fi
 
-	echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
-	id=`curl http://$SERVER/getID/$USERNAME | sed "s/[^0-9\\-]//g"`
-
-	echo ID is $id
-	./googlegargle -- "$id" 1>>_logs/"$id".log 2>&1 &
-	echo "Started googlegargle - $! - in background"
-	let "RAN = $RAN + 1"
-
-	SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
-	SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
-	THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
-	hash=`sha1sum "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
-	size=`du -b "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
-	echo "Hash is $hash"
-	echo "ID is $id"
-	echo "USERNAME is $USERNAME"
-	echo "Size is $size"
-	piece1="$USERNAME/$id/$size"
-	piece2="/$hash"
-	echo $piece1$piece2
-	curl "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash"
+	#use the commented 'for' line to report files you've downloaded separately using older versions
+	#if the serverkeeper supports this.
+	#for id in $(find 0/ 1/ 2/ 3/ 4/ 5/ 6/ 7/ 8/ 9/ -name \*flv | sed 's#.*/##g;s/.flv//g')	
+	for id in $(ls _queue/)
+	do
+		SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
+		SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
+		THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
+		if [ -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]
+		then
+			echo "NOT finished yet: $id"
+		elif [ -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv" ]
+		then
+			hash=`sha1sum "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
+			size=`du -b "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
+			echo "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash"
+			curl "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash" && rm -f _queue/"$id"
+		else
+			echo "Just started, no files written yet: $id"
+		fi
+	done
+	if [ -f _stop ]
+	then
+		echo "_stop file found, exiting"
+		break
+	fi
 done
+echo "Ran a total of $RAN downloads"
