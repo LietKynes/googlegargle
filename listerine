@@ -49,6 +49,10 @@ while [ $MAX -gt 0 ]; do
     else
         MAX=1
     fi
+    if [ -f STOP ]; then 
+	echo "I see a file called STOP. Stopping."
+	MAX=0
+    fi
     echo "Max downloads in parallel: $MAX"
     RUNNING=0
     for PID in $(jobs -p); do
