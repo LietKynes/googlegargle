@@ -46,7 +46,7 @@ curl -s http://$SERVER/introduce/$USERNAME/$EXTERN_IP
 echo
 RUNNING=0
 MAX=1
-while [ $MAX -gt 0 ]; do
+while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
     if [ -f ./_max_concurrent ]; then
         read MAX < ./_max_concurrent
     else
@@ -66,13 +66,11 @@ while [ $MAX -gt 0 ]; do
     for PID in $(ls $QUEUE_DIR/); do
         echo -n "$PID"
     done
+    if [ $MAX -eq 0 ]; then
+        echo -n ". Limit is 0, will exit when these jobs end"
+    fi
     echo .
     sleep 5
-    if [ $MAX -eq 0 ]; then
-        echo "Background job limit is 0, will exit when currently active child processes end:"
-        jobs
-        wait
-    fi
     
     for PID in $(ls $QUEUE_DIR/); do
         read id < $QUEUE_DIR/"$PID"
