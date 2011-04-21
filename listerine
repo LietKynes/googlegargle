@@ -41,8 +41,9 @@ for PID in $(ls $QUEUE_DIR); do
     echo "Please clean up $QUEUE_DIR/"
     exit 1
 done
+echo -n "Registering with $SERVER... "
 curl -s http://$SERVER/introduce/$USERNAME/$EXTERN_IP
-echo ""
+echo
 RUNNING=0
 MAX=1
 while [ $MAX -gt 0 ]; do
@@ -55,21 +56,20 @@ while [ $MAX -gt 0 ]; do
 	echo "I see a file called STOP. Stopping."
 	MAX=0
     fi
-    echo "Max downloads in parallel: $MAX"
     RUNNING=0
     for PID in $(jobs -p); do
         if kill -0 "$PID" 2>/dev/null; then
             let "RUNNING = $RUNNING + 1"
         fi
     done
-    echo "There are now $RUNNING jobs in the background."
-    echo "PIDs:  "
-    echo $(jobs -p)
-    echo "Queue: "
-    ls $QUEUE_DIR
+    echo -n "There are $RUNNING running jobs (limit $MAX). PIDs: "
+    for PID in $(ls $QUEUE_DIR/); do
+        echo -n "$PID"
+    done
+    echo .
     sleep 5
     if [ $MAX -eq 0 ]; then
-        echo "MAX set to 0, waiting for child processes to end:"
+        echo "Background job limit is 0, will exit when currently active child processes end:"
         jobs
         wait
     fi
@@ -78,6 +78,8 @@ while [ $MAX -gt 0 ]; do
         read id < $QUEUE_DIR/"$PID"
         count=$(ps auxww | grep -- $id | grep -v grep | wc -l)
         if [ $count -gt 0 ]; then
+            echo -n "googlegargle status for $id: 	"
+            tail -n1 _logs/"$id".log
             continue
         fi
         SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
@@ -86,9 +88,9 @@ while [ $MAX -gt 0 ]; do
         if [ -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv" -a ! -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]; then
             hash=`sha1sum "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
             size=`du -b "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
-            echo "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash"
+            echo "googlegargle finished for $id."
             curl "http://$SERVER/finishVid/$USERNAME/$id/$size/$hash" && rm -f $QUEUE_DIR/"$PID"
-        else                    
+        else
             #echo "Something is wrong with id $id, PID $PID" | tee -a _ERRROS
             #$MAX=0
             echo -n ""
@@ -103,7 +105,7 @@ while [ $MAX -gt 0 ]; do
         $GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
         echo $id > $QUEUE_DIR/$!
         
-        echo "Started googlegargle for $id - $! - in background"
+        echo "googlegargle started for $id with PID $!"
         let "RAN = $RAN + 1"
         let "RUNNING = $RUNNING + 1"
     done
