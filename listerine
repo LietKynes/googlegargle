@@ -23,7 +23,7 @@ case "$(uname)" in
             sha1sum "$1" |awk '{print $1}'
         }
         get_file_size() {
-	    du -b "$1" |awk '{print $1}'
+            stat -c %s "$1"
         }
         ;;
     Darwin|*BSD)
