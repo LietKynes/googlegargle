@@ -74,8 +74,7 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
     
     for PID in $(ls $QUEUE_DIR/); do
         read id < $QUEUE_DIR/"$PID"
-        count=$(ps auxww | grep -- $id | grep -v grep | wc -l)
-        if [ $count -gt 0 ]; then
+        if kill -0 "$PID" 2>/dev/null; then
             echo -n "googlegargle status for $id: 	"
             tail -n1 _logs/"$id".log
             continue
