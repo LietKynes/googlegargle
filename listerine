@@ -62,9 +62,9 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
             let "RUNNING = $RUNNING + 1"
         fi
     done
-    echo -n "There are $RUNNING running jobs (limit $MAX). PIDs: "
+    echo -n "There are $RUNNING running jobs (limit $MAX). PIDs:"
     for PID in $(ls $QUEUE_DIR/); do
-        echo -n "$PID"
+        echo -n " $PID"
     done
     if [ $MAX -eq 0 ]; then
         echo -n ". Limit is 0, will exit when these jobs end"
