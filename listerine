@@ -17,6 +17,30 @@ if [ ! -f $GARGLE ]; then
     exit 2
 fi
 
+case "$(uname)" in
+    Linux|CYGWIN*)
+        get_file_hash() {
+            sha1sum "$1" |awk '{print $1}'
+        }
+        get_file_size() {
+	    du -b "$1" |awk '{print $1}'
+        }
+        ;;
+    Darwin|*BSD)
+        get_file_hash() {
+            openssl sha1 |awk '{print $2}'
+        }
+        get_file_size() {
+            stat -f %z "$1"
+        }
+        ;;
+    *)
+        echo "$0: Sorry, I don't know how to do file sizes and checksums on your system, please try to fix me."
+        exit 1
+        ;;
+esac
+
+
 EXTERN_IP=`curl --silent ipv4.icanhazip.com` #Do not change without good reason, or underscor will eat your brains
 
 curl -s http://$SERVER/introduce/$USERNAME/$EXTERN_IP
@@ -32,8 +56,8 @@ do
 	SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
 	SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
 	THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
-	hash=`sha1sum "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
-	size=`du -b "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"|awk '{print $1}'`
+	hash=$(get_file_hash "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv")
+	size=$(get_file_size "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv")
 	echo "Hash is $hash"
 	echo "ID is $id"
 	echo "USERNAME is $USERNAME"
