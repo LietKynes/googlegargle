@@ -41,7 +41,7 @@ for PID in $(ls $QUEUE_DIR); do
     echo "Please clean up $QUEUE_DIR/"
     exit 1
 done
-echo -n "Registering with $SERVER... "
+echo -n "Registering with $SERVER as $USERNAME with IP $EXTERN_IP... "
 curl -s http://$SERVER/introduce/$USERNAME/$EXTERN_IP
 echo
 RUNNING=0
@@ -95,10 +95,9 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
     done
     
     while [ $RUNNING -lt $MAX ]; do
-        echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
+        echo -n "Getting an id from $SERVER... "
         id=`curl --silent http://$SERVER/getID/$USERNAME | sed "s/[^0-9\\-]//g"`
-        
-        echo ID is $id
+        echo "got $id"
         $GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
         echo $id > $QUEUE_DIR/$!
         
@@ -107,4 +106,4 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
         let "RUNNING = $RUNNING + 1"
     done
 done
-echo "Ran a total of $RAN downloads"
+echo "Ran a total of $RAN downloads."
