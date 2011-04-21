@@ -58,18 +58,6 @@ esac
 
 EXTERN_IP=`curl --silent ipv4.icanhazip.com` #Do not change without good reason, or underscor will eat your brains
 
-tellserver() {
-    cmd="$1"
-    shift
-    rest=
-    for chunk in "$@"; do
-        rest="$rest/$chunk"
-    done
-    if ! curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"; then
-        error "Couldn't contact the listerine server. The listerine server could be down, or your network."
-    fi
-}
-
 askserver() {
     var="$1"
     cmd="$2"
@@ -78,13 +66,17 @@ askserver() {
     for chunk in "$@"; do
         rest="$rest/$chunk"
     done
-    export $var=`curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"`
+    curl_output=`curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"`
     if [ $? != 0 ]; then
         error "Couldn't contact the listerine server. The listerine server could be down, or your network."
     fi
+    case "$var" in
+        -) echo -- "$curl_output";;
+        *) expor $var="$curl_output";;
+    esac
 }
 
-tellserver introduce $EXTERN_IP
+askserver - introduce $EXTERN_IP
 
 while true; do
   echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
@@ -110,7 +102,7 @@ while true; do
     echo "ID is $id"
     echo "USERNAME is $USERNAME"
     echo "Size is $size"
-    tellserver finishVid $id $size $hash
+    askserver - finishVid $id $size $hash
   else
     warning "Failed to download anything for $id."
   fi
