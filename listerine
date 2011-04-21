@@ -53,8 +53,8 @@ do
 		fi
 	done
 		echo "There are now $RUNNING jobs in the background."
-		echo "PIDs:  "; echo $(jobs -p)
-		echo "Queue: "; ls _queue
+		echo "PIDs:  "; echo $(jobs -p | sort)
+		echo "Queue: "; echo $(ls _queue | sort)
 		sleep 5;
 	if [ $MAX -eq 0 ]
 	then
