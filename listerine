@@ -28,7 +28,7 @@ case "$(uname)" in
         ;;
     Darwin|*BSD)
         get_file_hash() {
-            openssl sha1 |awk '{print $2}'
+            openssl sha1 "$1" |awk '{print $2}'
         }
         get_file_size() {
             stat -f %z "$1"
