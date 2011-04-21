@@ -35,7 +35,7 @@ case "$(uname)" in
         }
         ;;
     *)
-        echo "$0: Sorry, I don't know how to do file sizes and checksums on your system, please try to fix me."
+        echo "$0: Sorry, I don't know how to do file sizes and checksums on your system, please try to fix me.">&2
         exit 1
         ;;
 esac
