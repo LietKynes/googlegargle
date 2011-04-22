@@ -43,7 +43,7 @@ if [ -f _username ]; then
 fi
 
 if [ -z $USERNAME ]; then
-  error "You must supply a username with the -u option before you can begin"
+  error "You must supply a username with the -u option or in the _username file before you can begin"
 fi
 
 if [ ! -f $GARGLE ]; then
