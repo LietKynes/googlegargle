@@ -109,14 +109,15 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
             tail -n1 _logs/"$id".log
             continue
         fi
-        if [ ! -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]; then
-            echo "Orphan id found in queue: "$(cat $QUEUE_DIR/"$PID")"; old PID=$PID";
-            $GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
-            mv $QUEUE_DIR/"$PID" $QUEUE_DIR/$!
-              #possible conflict?
-            echo "googlegargle started for $id with PID $!"
-            let "RAN = $RAN + 1"
-            let "RUNNING = $RUNNING + 1"
+        if [ -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]; then
+            warning "Failed to download anything for $id; old PID=$PID"
+            mkdir -p _queue_errors/
+            FAKEPID=$PID;
+            while [ -e _queue_errors/"$FAKEPID" ] ; do
+		let "FAKEPID = $FAKEPID + 1"
+            done
+            mv $QUEUE_DIR/"$PID" _queue_errors/"$FAKEPID"
+            continue
 	fi
   SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
   SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
@@ -129,9 +130,16 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
     echo "ID is $id"
     echo "USERNAME is $USERNAME"
     echo "Size is $size"
-    askserver finishVid $id $size $hash
+    askserver finishVid $id $size $hash && rm -f $QUEUE_DIR/$PID
   else
-    warning "Failed to download anything for $id."
+    warning "Failed to download anything for $id; old PID=$PID"
+    mkdir -p _queue_errors/
+    FAKEPID=$PID;
+    while [ -e _queue_errors/"$FAKEPID" ] ; do
+      let "FAKEPID = $FAKEPID + 1"
+    done
+    mv $QUEUE_DIR/"$PID" _queue_errors/"$FAKEPID"
+    continue
   fi
     done
 
