@@ -12,16 +12,27 @@
 SERVER=199.48.254.90:8081
 GARGLE=./googlegargle
 
-while getopts :u: OPT; do
+while getopts :ul: OPT; do
     case $OPT in
 	u)
 	    USERNAME="$OPTARG"
 	    ;;
+	l)
+            LISTFILE="$OPTARG"
+            ;;
 	*)
-	    echo "usage: `basename $0` [-u USERNAME]"
+	    echo "usage: `basename $0` [-u USERNAME] [-l LISTFILE]"
             exit 1;
     esac
 done
+
+if [ -z "$LISTFILE" ]; then
+    LISTFILE=_list
+fi
+
+if [ ! -f "$LISTFILE" ]; then
+    touch "$LISTFILE"
+fi
 
 warning() {
   echo "$0: $*" >&2
@@ -56,7 +67,7 @@ askserver() {
         rest="$rest/$chunk"
     done
     if ! curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"; then
-        error "Couldn't contact the listerine server. The listerine server could be down, or your network."
+        warning "Couldn't contact the listerine server. The listerine server could be down, or your network."
     fi
 }
 
@@ -91,7 +102,9 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
   echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
   id=`askserver getID | sed "s/[^0-9\\-]//g"`
   if [ -z $id ]; then
-    error "The server didn't give us an id. This could mean the server is broken, or possibly that we're finished."
+    warning "The server didn't give us an id. This could mean the server is broken, or possibly that we're finished."
+    warning "Getting an id from the static list."
+    read id || { warning "We ran out of ids, waiting for current downloads to finish."; wait; error "WE RAN OUT OF IDs!!!"; }
   fi
 
   echo ID is $id
@@ -149,5 +162,5 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
   fi
   echo .
   sleep 5
-done
+done < $LISTFILE
 echo "Ran a total of $RAN downloads."
