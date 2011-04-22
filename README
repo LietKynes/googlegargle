@@ -1,1 +1,20 @@
 Some quick patches to the script from http://archiveteam.org/index.php?title=Google_Video
+
+This version runs googlegargle in parallel for situations like mine where I'm throttled at 80k per download, but I can have several in parallel. I don't know if google or my ISP does the throttling.
+
+By default the script behaves like the previous versions:
+fetch id from the server
+launch googlegargle for that id
+when googlegargle finishes fetching another id and so on
+'touch STOP' to stop the script abruptly
+
+Extra features:
+download stuff in parallel
+on-the-fly selection of the number of parallel jobs (echo 1 or 10 or 150 > _max_concurrent from another terminal)
+graceful exit (echo 0 > _max_concurrent)
+resume still-running downloads after an abrupt exit
+use a cherrypick list of IDs while the server is down, resume using the server when it's back up again
+
+_list file format: plaintext, one id per line
+
+
