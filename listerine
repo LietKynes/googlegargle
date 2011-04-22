@@ -9,7 +9,8 @@
 #./listerine - a companion to the google gargle project
 #relies on googlegrape, aria2c, curl, and youtube-dl
 
-SERVER=199.48.254.90:8081
+#SERVER=199.48.254.90:8081
+SERVER=listerine.ninjawedding.org:8081
 GARGLE=./googlegargle
 
 while getopts :ul: OPT; do
