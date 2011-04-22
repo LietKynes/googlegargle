@@ -97,7 +97,7 @@ askserver() {
     fi
     case "$var" in
         -) echo -- "$curl_output";;
-        *) expor $var="$curl_output";;
+        *) export $var="$curl_output";;
     esac
 }
 
