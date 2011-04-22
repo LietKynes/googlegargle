@@ -6,33 +6,27 @@
 GARGLE=./googlegargle
 
 while getopts :uls: OPT; do
-    case $OPT in
-	u)
-	    USERNAME="$OPTARG"
-	    ;;
-	l)
-            LISTFILE="$OPTARG"
-            ;;
-	s)
-	    SERVER="$OPTARG"
-	    ;;
-	*)
-	    echo "usage: `basename $0` [-u USERNAME] [-l LISTFILE]"
-            exit 1;
-    esac
+  case $OPT in
+  u)  USERNAME="$OPTARG";;
+  l)  LISTFILE="$OPTARG";;
+  s)  SERVER="$OPTARG";;
+  *)
+    echo "usage: `basename $0` [-u USERNAME] [-l LISTFILE]"
+    exit 1;
+  esac
 done
 
 if [ -z "$SERVER" ]; then
-	#SERVER=199.48.254.90:8081
-	SERVER=listerine.ninjawedding.org:8081
+  #SERVER=199.48.254.90:8081
+  SERVER=listerine.ninjawedding.org:8081
 fi
 
 if [ -z "$LISTFILE" ]; then
-    LISTFILE=_list
+  LISTFILE=_list
 fi
 
 if [ ! -f "$LISTFILE" ]; then
-    touch "$LISTFILE"
+  touch "$LISTFILE"
 fi
 
 warning() {
@@ -45,7 +39,7 @@ error() {
 }
 
 if [ -f _username ]; then
-    read USERNAME < _username
+  read USERNAME < _username
 fi
 
 if [ -z $USERNAME ]; then
@@ -53,8 +47,8 @@ if [ -z $USERNAME ]; then
 fi
 
 if [ ! -f $GARGLE ]; then
-    error "Couldn't find googlegargle. Are you sure you cloned everything from the git repository?"
-    exit 2
+  error "Couldn't find googlegargle. Are you sure you cloned everything from the git repository?"
+  exit 2
 fi
 
 case "$(uname)" in
@@ -84,22 +78,22 @@ EXTERN_IP=`curl --silent ipv4.icanhazip.com` #Do not change without good reason,
 RAN=0 #how many processes ran so far
 
 askserver() {
-    var="$1"
-    cmd="$2"
-    shift 2
-    rest=
-    for chunk in "$@"; do
-        rest="$rest/$chunk"
-    done
-    echo "CURL: http://$SERVER/$cmd/${USERNAME}$rest"
-    curl_output=`curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"`
-    if [ $? != 0 ]; then
-        warning "Couldn't contact the listerine server. The listerine server could be down, or your network."
-    fi
-    case "$var" in
-        -) echo -- "$curl_output";;
-        *) export $var="$curl_output";;
-    esac
+  var="$1"
+  cmd="$2"
+  shift 2
+  rest=
+  for chunk in "$@"; do
+    rest="$rest/$chunk"
+  done
+  echo "CURL: http://$SERVER/$cmd/${USERNAME}$rest"
+  curl_output=`curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"`
+  if [ $? != 0 ]; then
+    warning "Couldn't contact the listerine server. The listerine server could be down, or your network."
+  fi
+  case "$var" in
+    -) echo -- "$curl_output";;
+    *) export $var="$curl_output";;
+  esac
 }
 
 askserver - introduce $EXTERN_IP
@@ -110,97 +104,97 @@ mkdir -p $QUEUE_DIR
 RUNNING=0
 MAX=1
 while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
-    if [ -f ./_max_concurrent ]; then
-        read MAX < ./_max_concurrent
-    else
-        MAX=1
-    fi
-    RUNNING=0
-    for PID in $(jobs -p); do
-        if kill -0 "$PID" 2>/dev/null; then
-            let "RUNNING = $RUNNING + 1"
-        fi
-    done
-    echo -n "There are $RUNNING running jobs (limit $MAX). PIDs:"
-    for PID in $(ls $QUEUE_DIR/); do
-        echo -n " $PID"
-    done
-    if [ $MAX -eq 0 ]; then
-        echo -n ". Limit is 0, will exit when these jobs end"
-    fi
-    echo
-    while [ $RUNNING -lt $MAX ]; do
-  echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
-  askserver id getID
-  if [ $? != 0 ]; then
-    warning "The server didn't give us an id. This could mean the server is broken, or possibly that we're finished."
-    warning "Getting an id from the static list."
-    read id || { warning "We ran out of ids, waiting for current downloads to finish."; wait; error "WE RAN OUT OF IDs!!!"; }
-  fi
-  if [ $(echo $id | grep "^[-0-9]*$") != $id ]; then
-    error "The server did not return a valid id. It said: $id"
-  fi
-
-  echo ID is $id
-
-  $GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
-        echo $id > $QUEUE_DIR/$!
-        echo "googlegargle started for $id with PID $!"
-        let "RAN = $RAN + 1"
-        let "RUNNING = $RUNNING + 1"
-    done
-
-    if [ -f ./_max_report ]; then
-      read MAX_REPORT < ./_max_report
-    else
-      MAX_REPORT=2
-    fi
-    REPORTED=0
-    for PID in $(ls $QUEUE_DIR/); do
-	if [ $REPORTED -ge $MAX_REPORT ]; then
-		break;
-	fi #don't keep too many download slots used while hashing
-        read id < $QUEUE_DIR/"$PID"
-        if kill -0 "$PID" 2>/dev/null; then
-            echo -n "googlegargle status for $id: 	"
-            tail -n1 _logs/"$id".log
-            continue
-        fi
-        if [ -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]; then
-            warning "Failed to download anything for $id; old PID=$PID"
-            mkdir -p _queue_errors/
-            FAKEPID=$PID;
-            while [ -e _queue_errors/"$FAKEPID" ] ; do
-		let "FAKEPID = $FAKEPID + 1"
-            done
-            mv $QUEUE_DIR/"$PID" _queue_errors/"$FAKEPID"
-            continue
-	fi
-  SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
-  SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
-  THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
-  file="$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"
-
-  if [ -f $file -a ! -f "$file.aria2" ]; then
-    let "REPORTED = $REPORTED + 1";
-    hash=$(get_file_hash "$file")
-    size=$(get_file_size "$file")
-    echo "Hash is $hash"
-    echo "ID is $id"
-    echo "USERNAME is $USERNAME"
-    echo "Size is $size"
-    askserver - finishVid $id $size $hash && rm -f $QUEUE_DIR/$PID
+  if [ -f ./_max_concurrent ]; then
+    read MAX < ./_max_concurrent
   else
-    warning "Failed to download anything for $id; old PID=$PID"
-    mkdir -p _queue_errors/
-    FAKEPID=$PID;
-    while [ -e _queue_errors/"$FAKEPID" ] ; do
-      let "FAKEPID = $FAKEPID + 1"
-    done
-    mv $QUEUE_DIR/"$PID" _queue_errors/"$FAKEPID"
-    continue
+    MAX=1
   fi
-    done
+  RUNNING=0
+  for PID in $(jobs -p); do
+    if kill -0 "$PID" 2>/dev/null; then
+      let "RUNNING = $RUNNING + 1"
+    fi
+  done
+  echo -n "There are $RUNNING running jobs (limit $MAX). PIDs:"
+  for PID in $(ls $QUEUE_DIR/); do
+    echo -n " $PID"
+  done
+  if [ $MAX -eq 0 ]; then
+    echo -n ". Limit is 0, will exit when these jobs end"
+  fi
+  echo
+  while [ $RUNNING -lt $MAX ]; do
+    echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
+    askserver id getID
+    if [ $? != 0 ]; then
+      warning "The server didn't give us an id. This could mean the server is broken, or possibly that we're finished."
+      warning "Getting an id from the static list."
+      read id || { warning "We ran out of ids, waiting for current downloads to finish."; wait; error "WE RAN OUT OF IDs!!!"; }
+    fi
+    if [ $(echo $id | grep "^[-0-9]*$") != $id ]; then
+      error "The server did not return a valid id. It said: $id"
+    fi
+
+    echo ID is $id
+
+    $GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
+    echo $id > $QUEUE_DIR/$!
+    echo "googlegargle started for $id with PID $!"
+    let "RAN = $RAN + 1"
+    let "RUNNING = $RUNNING + 1"
+  done
+
+  if [ -f ./_max_report ]; then
+    read MAX_REPORT < ./_max_report
+  else
+    MAX_REPORT=2
+  fi
+  REPORTED=0
+  for PID in $(ls $QUEUE_DIR/); do
+    if [ $REPORTED -ge $MAX_REPORT ]; then
+      break;
+    fi #don't keep too many download slots used while hashing
+    read id < $QUEUE_DIR/"$PID"
+    if kill -0 "$PID" 2>/dev/null; then
+      echo -n "googlegargle status for $id: 	"
+      tail -n1 _logs/"$id".log
+      continue
+    fi
+    if [ -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]; then
+      warning "Failed to download anything for $id; old PID=$PID"
+      mkdir -p _queue_errors/
+      FAKEPID=$PID;
+      while [ -e _queue_errors/"$FAKEPID" ] ; do
+        let "FAKEPID = $FAKEPID + 1"
+      done
+      mv $QUEUE_DIR/"$PID" _queue_errors/"$FAKEPID"
+      continue
+    fi
+    SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
+    SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
+    THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
+    file="$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"
+
+    if [ -f $file -a ! -f "$file.aria2" ]; then
+      let "REPORTED = $REPORTED + 1";
+      hash=$(get_file_hash "$file")
+      size=$(get_file_size "$file")
+      echo "Hash is $hash"
+      echo "ID is $id"
+      echo "USERNAME is $USERNAME"
+      echo "Size is $size"
+      askserver - finishVid $id $size $hash && rm -f $QUEUE_DIR/$PID
+    else
+      warning "Failed to download anything for $id; old PID=$PID"
+      mkdir -p _queue_errors/
+      FAKEPID=$PID;
+      while [ -e _queue_errors/"$FAKEPID" ] ; do
+        let "FAKEPID = $FAKEPID + 1"
+      done
+      mv $QUEUE_DIR/"$PID" _queue_errors/"$FAKEPID"
+      continue
+    fi
+  done
 
   if [ -f STOP ]; then 
     echo "$0: I see a file called STOP. Stopping."
@@ -208,7 +202,8 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
   fi
   echo .
   if [ $REPORTED -eq 0 ]; then
-	sleep 5
+    sleep 5
   fi #no need to sleep if we have already wasted time hashing
 done < $LISTFILE
 echo "Ran a total of $RAN downloads."
+
