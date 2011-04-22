@@ -49,7 +49,7 @@ if [ -f _username ]; then
 fi
 
 if [ -z $USERNAME ]; then
-    error "You must supply a username with the -u option before you can begin"
+  error "You must supply a username with the -u option before you can begin"
 fi
 
 if [ ! -f $GARGLE ]; then
@@ -57,22 +57,51 @@ if [ ! -f $GARGLE ]; then
     exit 2
 fi
 
+case "$(uname)" in
+  Linux|CYGWIN*)
+    get_file_hash() {
+      sha1sum "$1" |awk '{print $1}'
+    }
+    get_file_size() {
+      stat -c %s "$1"
+    }
+    ;;
+  Darwin|*BSD)
+    get_file_hash() {
+      openssl sha1 "$1" |awk '{print $2}'
+    }
+    get_file_size() {
+      stat -f %z "$1"
+    }
+    ;;
+  *)
+    error "Sorry, I don't know how to do file sizes and checksums on your system, please try to fix me."
+    ;;
+esac
+
+
 EXTERN_IP=`curl --silent ipv4.icanhazip.com` #Do not change without good reason, or underscor will eat your brains
 RAN=0 #how many processes ran so far
 
 askserver() {
-    cmd="$1"
-    shift
+    var="$1"
+    cmd="$2"
+    shift 2
     rest=
     for chunk in "$@"; do
         rest="$rest/$chunk"
     done
-    if ! curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"; then
+    curl_output=`curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"`
+    if [ $? != 0 ]; then
         warning "Couldn't contact the listerine server. The listerine server could be down, or your network."
     fi
+    case "$var" in
+        -) echo -- "$curl_output";;
+        *) expor $var="$curl_output";;
+    esac
 }
 
-askserver introduce $EXTERN_IP
+askserver - introduce $EXTERN_IP
 
 mkdir -p _logs
 QUEUE_DIR=_queue
@@ -101,11 +130,14 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
     echo
     while [ $RUNNING -lt $MAX ]; do
   echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
-  id=`askserver getID | sed "s/[^0-9\\-]//g"`
-  if [ -z $id ]; then
+  askserver id getID
+  if [ $? != 0 ]; then
     warning "The server didn't give us an id. This could mean the server is broken, or possibly that we're finished."
     warning "Getting an id from the static list."
     read id || { warning "We ran out of ids, waiting for current downloads to finish."; wait; error "WE RAN OUT OF IDs!!!"; }
+  fi
+  if [ $(echo $id | grep "^[-0-9]*$") != $id ]; then
+    error "The server did not return a valid id. It said: $id"
   fi
 
   echo ID is $id
@@ -137,14 +169,14 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
   SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
   THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
   file="$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"
-  if [ -f $file -a ! -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]; then
-    hash=`sha1sum "$file"|awk '{print $1}'`
-    size=`du -b "$file"|awk '{print $1}'`
+  if [ -f $file -a ! -f "$file.aria2" ]; then
+    hash=$(get_file_hash "$file")
+    size=$(get_file_size "$file")
     echo "Hash is $hash"
     echo "ID is $id"
     echo "USERNAME is $USERNAME"
     echo "Size is $size"
-    askserver finishVid $id $size $hash && rm -f $QUEUE_DIR/$PID
+    askserver - finishVid $id $size $hash && rm -f $QUEUE_DIR/$PID
   else
     warning "Failed to download anything for $id; old PID=$PID"
     mkdir -p _queue_errors/
