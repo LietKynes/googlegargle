@@ -3,11 +3,9 @@
 #./listerine - a companion to the google gargle project
 #relies on googlegrape, aria2c, curl, and youtube-dl
 
-#SERVER=199.48.254.90:8081
-SERVER=listerine.ninjawedding.org:8081
 GARGLE=./googlegargle
 
-while getopts :ul: OPT; do
+while getopts :uls: OPT; do
     case $OPT in
 	u)
 	    USERNAME="$OPTARG"
@@ -15,11 +13,19 @@ while getopts :ul: OPT; do
 	l)
             LISTFILE="$OPTARG"
             ;;
+	s)
+	    SERVER="$OPTARG"
+	    ;;
 	*)
 	    echo "usage: `basename $0` [-u USERNAME] [-l LISTFILE]"
             exit 1;
     esac
 done
+
+if [ -z "$SERVER" ]; then
+	#SERVER=199.48.254.90:8081
+	SERVER=listerine.ninjawedding.org:8081
+fi
 
 if [ -z "$LISTFILE" ]; then
     LISTFILE=_list
@@ -85,6 +91,7 @@ askserver() {
     for chunk in "$@"; do
         rest="$rest/$chunk"
     done
+    echo "CURL: http://$SERVER/$cmd/${USERNAME}$rest"
     curl_output=`curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"`
     if [ $? != 0 ]; then
         warning "Couldn't contact the listerine server. The listerine server could be down, or your network."
@@ -142,7 +149,17 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
         let "RAN = $RAN + 1"
         let "RUNNING = $RUNNING + 1"
     done
+
+    if [ -f ./_max_report ]; then
+      read MAX_REPORT < ./_max_report
+    else
+      MAX_REPORT=2
+    fi
+    REPORTED=0
     for PID in $(ls $QUEUE_DIR/); do
+	if [ $REPORTED -ge $MAX_REPORT ]; then
+		break;
+	fi #don't keep too many download slots used while hashing
         read id < $QUEUE_DIR/"$PID"
         if kill -0 "$PID" 2>/dev/null; then
             echo -n "googlegargle status for $id: 	"
@@ -163,7 +180,9 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
   SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
   THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
   file="$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"
+
   if [ -f $file -a ! -f "$file.aria2" ]; then
+    let "REPORTED = $REPORTED + 1";
     hash=$(get_file_hash "$file")
     size=$(get_file_size "$file")
     echo "Hash is $hash"
@@ -188,6 +207,8 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
     exit 0
   fi
   echo .
-  sleep 5
+  if [ $REPORTED -eq 0 ]; then
+	sleep 5
+  fi #no need to sleep if we have already wasted time hashing
 done < $LISTFILE
 echo "Ran a total of $RAN downloads."
