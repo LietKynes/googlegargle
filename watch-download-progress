@@ -50,7 +50,11 @@ do
         echo
         if [ $free_space_kb -lt $free_space_threshold_kb ]; then
             echo "Running out of disk space! Creating STOP file to warn listerine."
-            touch STOP
+            if [ -f _max_concurrent ]; then
+		echo 0 > _max_concurrent
+            else
+                touch STOP
+            fi
         fi
     fi
     sleep $interval
