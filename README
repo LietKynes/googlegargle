@@ -13,8 +13,8 @@ download stuff in parallel
 on-the-fly selection of the number of parallel jobs (echo 1 or 10 or 150 > _max_concurrent from another terminal)
 graceful exit (echo 0 > _max_concurrent)
 resume still-running downloads after an abrupt exit
-use a cherrypick list of IDs while the server is down, resume using the server when it's back up again
-
+use a cherrypick list of IDs first, then get IDs from the server when it's back up again
 _list file format: plaintext, one id per line
 
 
+LietKynes: I'll be offline until at least 2010-04-27
