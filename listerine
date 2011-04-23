@@ -17,8 +17,12 @@ while getopts :uls: OPT; do
 done
 
 if [ -z "$SERVER" ]; then
-  #SERVER=199.48.254.90:8081
-  SERVER=listerine.ninjawedding.org:8081
+  if [ -f "_server" ]; then
+    read SERVER < _server
+  else
+    #SERVER=199.48.254.90:8081
+    SERVER=listerine.ninjawedding.org:8081
+  fi
 fi
 
 if [ -z "$LISTFILE" ]; then
@@ -85,10 +89,11 @@ askserver() {
   for chunk in "$@"; do
     rest="$rest/$chunk"
   done
-  echo "CURL: http://$SERVER/$cmd/${USERNAME}$rest"
+  #echo "CURL: http://$SERVER/$cmd/${USERNAME}$rest" 1>&2
   curl_output=`curl --silent --fail "http://$SERVER/$cmd/${USERNAME}$rest"`
   if [ $? != 0 ]; then
     warning "Couldn't contact the listerine server. The listerine server could be down, or your network."
+#    return 1
   fi
   case "$var" in
     -) echo -- "$curl_output";;
@@ -124,19 +129,24 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
   fi
   echo
   while [ $RUNNING -lt $MAX ]; do
-    echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
-    askserver id getID
+    read id
     if [ $? != 0 ]; then
-      warning "The server didn't give us an id. This could mean the server is broken, or possibly that we're finished."
-      warning "Getting an id from the static list."
-      read id || { warning "We ran out of ids, waiting for current downloads to finish."; wait; error "WE RAN OUT OF IDs!!!"; }
-    fi
-    if [ $(echo $id | grep "^[-0-9]*$") != $id ]; then
-      error "The server did not return a valid id. It said: $id"
-    fi
-
+      echo "Static list finished, will get ids from $SERVER."
+      echo "Getting an id from $SERVER, authenticated as $USERNAME with IP $EXTERN_IP"
+      askserver id getID
+      if [ $? != 0 -o $(echo $id | grep "^[-0-9]*$") != $id ]; then
+        warning "The server didn't give us an id. This could mean the server is broken, or possibly that we're finished."
+        warning "Getting an id from the static list."
+        read id || { warning "We ran out of ids, waiting for current downloads to finish."; wait; error "WE RAN OUT OF IDs!!!"; }
+      fi
+      if [ $(echo $id | grep "^[-0-9]*$") != $id ]; then
+        warning "The server did not return a valid id. It said: $id"
+        let "WAIT = 0 + $RANDOM % 5"
+        sleep $WAIT
+        break 2
+      fi
+    fi 
     echo ID is $id
-
     $GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
     echo $id > $QUEUE_DIR/$!
     echo "googlegargle started for $id with PID $!"
