@@ -28,17 +28,19 @@ free_space_threshold_kb=$(( 500 * 1024 ))
 
 size=0
 time=0
+free_space_start=$(df -Pk . | df_filter | tail -n1)
 while true
 do
     previous_size=$size
     previous_time=$time
-    size=$(du -kc ? | tail -n1 | cut -f1)
+#    size=$(du -kc ? | tail -n1 | cut -f1)
+    free_space_kb=$(df -Pk . | df_filter | tail -n1)
+    let "size = $free_space_start - $free_space_kb"
     time=$(date +%s)
-    echo -n "Have $(( $size / 1024 ))M"
-    echo -n " in $(find . -name '*flv' | wc -l) files,"
+    echo -n "Pulled $(( $size / 1024 ))M"
+#    echo -n " in $(find . -name '*flv' | wc -l) files,"
     kbps=$(( $(( $size - $previous_size )) / $(( $time - $previous_time )) ))
     echo -n " growing at ${kbps}k/s."
-    free_space_kb=$(df -Pk . | df_filter | tail -n1)
     echo -n " $(( ${free_space_kb} / 1024 ))M of free space"
     if [ $kbps -gt 0 ]; then 
         echo -n ", will last until $(date -d @$(( $(date +%s) + $free_space_kb / $kbps )))"
