@@ -25,6 +25,10 @@ if [ -z "$SERVER" ]; then
   fi
 fi
 
+if [ -f _other_archive ]; then
+  read OTHER_ARCHIVE < _other_archive
+fi #don't download what you already downloaded using lists.
+
 if [ -z "$LISTFILE" ]; then
   LISTFILE=_list
 fi
@@ -147,6 +151,18 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
       fi
     fi 
     echo ID is $id
+    if [ $? != 0 -o $(echo $id | grep "^[-0-9]*$") != $id ]; then
+      warning "Wrong id format: [$id], skipping"
+      break 1
+    fi
+    SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
+    SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
+    THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
+    file="$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"
+    if [ -f "$OTHER_ARCHIVE"/"$file" ]; then
+      echo "Skipping this id, already downloaded in another archive."
+      break 1
+    fi
     $GARGLE -- "$id" 1>>_logs/"$id".log 2>&1 &
     echo $id > $QUEUE_DIR/$!
     echo "googlegargle started for $id with PID $!"
@@ -170,6 +186,10 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
       tail -n1 _logs/"$id".log
       continue
     fi
+    SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
+    SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
+    THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
+    file="$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"
     if [ -f "$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv.aria2" ]; then
       warning "Failed to download anything for $id; old PID=$PID"
       mkdir -p _queue_errors/
@@ -180,10 +200,6 @@ while [ $MAX -gt 0 -o $RUNNING -gt 0 ]; do
       mv $QUEUE_DIR/"$PID" _queue_errors/"$FAKEPID"
       continue
     fi
-    SEPDIB=$(echo "$id" | sed 's/-//g' | cut -c1)
-    SECDIB=$(echo "$id" | sed 's/-//g' | cut -c2)
-    THIRDIB=$(echo "$id" | sed 's/-//g' | cut -c3)
-    file="$SEPDIB/$SECDIB/$THIRDIB/$id/$id.flv"
 
     if [ -f $file -a ! -f "$file.aria2" ]; then
       let "REPORTED = $REPORTED + 1";
